@@ -1,0 +1,5 @@
+<div id="location_id_<%= id %>">
+  <%= label_tag :location, "location:"%>
+  <%= text_field_tag(:location,'',{id: "location_input_#{id}"}) %>
+  <%= button_tag("Add Location",{value: id,onClick: "add_location(this); return false "}) %>
+</div>

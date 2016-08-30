@@ -1,0 +1,132 @@
+<div class= "location_adder">
+    <%= render(partial: "form", locals: {id: 0} ) %>
+</div>
+<div id="map"></div>
+    <script>
+      var map;
+      var id_counter = 0;
+      var locals = [];
+      function locAdderTemplate (id,elToappend) {
+        wrapperDiv = document.createElement("div")
+        wrapperDiv.id = "location_id_" + id
+        wrapperDiv.appendChild(el("label",{
+          for: "location",
+          name: "location",
+          id: "location",
+          innerHTML: "Location: "
+          }));
+        wrapperDiv.appendChild(el("input",{
+          type: "text",
+          name: "location",
+          id: "location_input_" + id
+        }));
+        btn = el("button",{
+          type: "submit",
+          value: id,
+          innerHTML: "Add Location" 
+        });
+        btn.onclick = function () {add_location(this); return false};
+        wrapperDiv.appendChild(btn);
+        elToappend.appendChild(wrapperDiv);
+      }
+      
+      function el (type,attributes) {
+        e = document.createElement(type)
+        for ( attr in attributes) {
+          e[attr] = attributes[attr];
+        }
+        return e
+      }
+      
+      function find (id,list){
+        for (var i = 0; i < list.length; i++) {
+          if (list[i].id == id) {
+            return list[i];
+          }
+        }
+      }
+
+      function add_location (button) {
+        loc = find("location_input_" + button.value, button.parentNode.childNodes).value;
+        divWrapper = button.parentNode;
+        get_loc(loc,function (pos) {
+          locals.push({
+            location: loc,
+            pos: pos
+          })
+          console.log(locals)
+          text = null
+            if (id_counter > 0) {
+              get_travel_time(locals[id_counter].pos,locals[id_counter - 1 ].pos,function (res) {
+                console.log(res)
+                divWrapper.innerHTML = loc;
+                locAdderTemplate(id_counter,divWrapper);
+                id_counter++
+              })
+            }else {
+              divWrapper.innerHTML = loc;
+              locAdderTemplate(id_counter,divWrapper);
+              id_counter++
+            }
+          
+        })
+        return false;
+      }
+      function initMap () {
+        Map = google.maps.Map;
+        Geo = new google.maps.Geocoder();
+        get_loc("London, UK",function (loc) { 
+          map = new Map(document.getElementById('map'), {
+            center: loc,
+            zoom: 11
+          });
+        });
+      }
+
+      function get_loc (location,callback) {
+        console.log(location)
+         Geo.geocode({
+          address: location
+         },function (results,status){
+           console.log(results);
+          callback(results[0].geometry.location)
+         });
+      }
+
+      function conv(loc) {
+        a =  loc.lat() + "," + loc.lng();
+        return a;
+      }      
+
+      function get_travel_time_via_location (start,end,callback) {
+        get_loc(start,function (start_loc) {
+          get_loc(end,function (end_loc) { 
+            get_travel_time(start_loc,end_loc,callback)
+          });
+        });
+      }
+
+      function get_travel_time ( start_loc,end_loc,callback ){
+        xhr = new XMLHttpRequest();
+        xhr.open("POST",'/api/calculate_travel.json',true)
+        xhr.setRequestHeader("Content-type","application/json")
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState == XMLHttpRequest.DONE ) {
+            console.log(xhr.body)
+            if (xhr.status = 200) {
+              callback(xhr.body,200)
+            } else if (xhr.status == 400) {
+              callback({},400)
+            } else {
+              callback({},0)
+            };
+          }; 
+        };
+        xhr.send(JSON.stringify({
+          srt_loc: conv(start_loc),
+          end_loc: conv(end_loc)
+        }));
+      }
+
+    </script>
+<%= javascript_include_tag "https://maps.googleapis.com/maps/api/js?key=#{ENV['GMAPS_API_KEY']}&callback=initMap", defer: true, async: true%>
